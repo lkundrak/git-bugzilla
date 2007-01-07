@@ -20,28 +20,13 @@ GetOptions("bug|b=i" => \$bugid,
 	   "numbered|n" => \$numbered,
 	   "start-number" => \$start_number);
 
-my @revs;
-open REVPARSE, '-|', 'git-rev-parse', @ARGV;
-chop (@revs = sort <REVPARSE>);
-close REVPARSE;
-if (@revs eq 1) {
-	$since = $revs[0];
-	$until = 'HEAD';
-} else {
-	$since = substr $revs[1], 1;
-	$until = $revs[0];
-}
-
 unless ($bugid > 0 and $username and $password) {
-	print "bad usage";
-	exit;
+	die "FIXME: Bad usage\n";
 }
 
 # Get revision list
-print "Getting revision list between $since\n";
-print "                          and $until...\n";
 my @revisions;
-open REVLIST, '-|', "git-rev-list ^$since $until" or die "Cannot call git-rev-list: $!";
+open REVLIST, '-|', "git-rev-list", @ARGV or die "Cannot call git-rev-list: $!";
 chop (@revisions = reverse <REVLIST>);
 close REVLIST;
 
@@ -61,11 +46,11 @@ die "Login submission failed: ", $mech->res->status_line unless $mech->success;
 print "Attaching patches...\n";
 my $i = $start_number;
 my $n = @revisions - 1 + $i;
-for $until (@revisions) {
+for my $rev (@revisions) {
 	my $description = $numbered ? "[$i/$n]" : '[PATCH]';
 	my $comment = '';
 
-	open COMMIT, '-|', "git-cat-file commit $until";
+	open COMMIT, '-|', "git-cat-file commit $rev";
 	# skip headers
 	while (<COMMIT>) {
 		chop;
@@ -76,8 +61,8 @@ for $until (@revisions) {
 	close COMMIT;
 
 	$comment .= "\n---\n" unless $comment eq '';
-	$comment .= `git-diff-tree --stat ^$since $until`;
-	my $patch = `git-diff-tree -p ^$since $until`;
+	$comment .= `git-diff-tree --stat $rev`;
+	my $patch = `git-diff-tree -p $rev`;
 	
 	print "  - $description\n";
 	
@@ -97,9 +82,7 @@ for $until (@revisions) {
 
 	$mech->submit;
 	die "Attachment failed: ", $mech->res->status_line unless $mech->success;
-	#print $mech->title, "\n";
-	
-	$since = $until;
+
 	$i++;
 }
 print "Done.\n"
