@@ -15,7 +15,10 @@ sub authenticate {
 	my $username = shift;
 	my $password = shift;
 
-	print STDERR "Logging in as $username...\n";
+	unless ($username) {
+		print "Bugzilla login: ";
+		chop ($username = ReadLine(0));
+	}
 
 	unless ($password) {
 		print "Bugzilla password: ";
@@ -25,6 +28,7 @@ sub authenticate {
 		print "\n";
 	}
 
+	print STDERR "Logging in as $username...\n";
 	$mech->get("$url/index.cgi?GoAheadAndLogIn=1");
 	die "Can't fetch login form: ", $mech->res->status_line
 		unless $mech->success;
@@ -83,12 +87,9 @@ sub usage {
 	my $exitcode = shift || 0;
 	my $fd = $exitcode ? \*STDERR : \*STDOUT;
 	print $fd <<EOF;
-Usage: git-send-bugzilla [options] <since>[..<until>]
+Usage: git-send-bugzilla [options] <bugid> <since>[..<until>]
 
 Options:
-   -b|--bug <bugid>
-       The bug number to attach the patches to.
-
    -u|--username <username>
        Your Bugzilla user name.
 
@@ -104,19 +105,15 @@ EOF
 	exit $exitcode;
 }
 
-my $bugid = 0;
 my $username = read_repo_config 'username';
 my $password = read_repo_config 'password';
-my $since = "";
-my $until = "";
 my $numbered = read_repo_config 'numbered', 'bool' or 0;
 my $start_number = 1;
 my $dry_run = 0;
 my $help = 0;
 
 # Parse options
-GetOptions("bug|b=i" => \$bugid,
-	   "username|u=s" => \$username,
+GetOptions("username|u=s" => \$username,
 	   "password|p=s" => \$password,
 	   "numbered|n" => \$numbered,
 	   "start-number" => \$start_number,
@@ -124,10 +121,9 @@ GetOptions("bug|b=i" => \$bugid,
 	   "help|h|?" => \$help);
 
 usage if $help;
-print STDERR "No bug id specified!\n" and usage 1
-	unless $dry_run or $bugid;
-print STDERR "No user name specified!\n" and usage 1
-	unless $dry_run or $username;
+my $bugid = shift @ARGV
+	or print STDERR "No bug id specified!\n" and usage 1
+	unless $dry_run;
 
 # Get revisions to build patch from. Do the same way git-format-patch does.
 my @revisions;
