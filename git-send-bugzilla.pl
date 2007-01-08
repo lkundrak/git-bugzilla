@@ -12,17 +12,35 @@ my $since = "";
 my $until = "";
 my $numbered = 0;
 my $start_number = 1;
+my $help = 0;
 
 # Parse options
 GetOptions("bug|b=i" => \$bugid,
 	   "username|u=s" => \$username,
 	   "password|p=s" => \$password,
 	   "numbered|n" => \$numbered,
-	   "start-number" => \$start_number);
+	   "start-number" => \$start_number,
+	   "help|h|?" => $help);
 
-unless ($bugid > 0 and $username and $password) {
-	die "FIXME: Bad usage\n";
-}
+print <<EOF and exit unless ($bugid > 0 and $username and $password and !$help);
+Usage: git-send-bugzilla [options] <since>[..<until>]
+
+Options:
+   -b|--bug <bugid>
+       The bug number to attach the patches to.
+
+   -u|--username <username>
+       Your Bugzilla user name.
+
+   -p|--password <password>
+       Your Bugzilla password.
+   
+   -n|--numbered
+       Prefix attachment names with [n/m].
+
+   --start-number <n>
+       Start numbering the patches at <n> instead of 1.
+EOF
 
 # Get revision list
 my @revisions;
