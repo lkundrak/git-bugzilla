@@ -129,7 +129,7 @@ print STDERR "No user name specified!\n" and usage 1
 
 # Get revisions to build patch from. Do the same way git-format-patch does.
 my @revisions;
-open REVPARSE, '-|', 'git-rev-parse', @ARGV
+open REVPARSE, '-|', 'git-rev-parse', ('--revs-only', @ARGV)
 	or die "Cannot call git-rev-parse: $!";
 chop (@revisions = grep {1} <REVPARSE>);
 close REVPARSE;
