@@ -80,7 +80,9 @@ sub read_repo_config {
 }
 
 sub usage {
-	print STDERR <<EOF;
+	my $exitcode = shift || 0;
+	my $fd = $exitcode ? \*STDERR : \*STDOUT;
+	print $fd <<EOF;
 Usage: git-send-bugzilla [options] <since>[..<until>]
 
 Options:
@@ -99,7 +101,7 @@ Options:
    --start-number <n>
        Start numbering the patches at <n> instead of 1.
 EOF
-	exit shift || 0;
+	exit $exitcode;
 }
 
 my $bugid = 0;
