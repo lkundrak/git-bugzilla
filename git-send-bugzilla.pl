@@ -8,13 +8,14 @@ use WWW::Mechanize;
 use Getopt::Long;
 use Term::ReadKey qw/ReadMode ReadLine/;
 
+my $url = "http://bugzilla.gnome.org";
 my $mech = WWW::Mechanize->new(agent => "git-send-bugzilla/0.0");
 
 sub authenticate {
 	my $username = shift;
 	my $password = shift;
 
-	print "Logging in as $username...\n";
+	print STDERR "Logging in as $username...\n";
 
 	unless ($password) {
 		print "Bugzilla password: ";
@@ -24,13 +25,15 @@ sub authenticate {
 		print "\n";
 	}
 
-	$mech->get("http://bugzilla.gnome.org/index.cgi?GoAheadAndLogIn=1");
-	die "Can't fetch login form: ", $mech->res->status_line unless $mech->success;
+	$mech->get("$url/index.cgi?GoAheadAndLogIn=1");
+	die "Can't fetch login form: ", $mech->res->status_line
+		unless $mech->success;
 
 	$mech->set_fields(Bugzilla_login => $username,
 			  Bugzilla_password => $password);
 	$mech->submit;
-	die "Login submission failed: ", $mech->res->status_line unless $mech->success;
+	die "Login submission failed: ", $mech->res->status_line
+		unless $mech->success;
 }
 
 sub add_attachment {
@@ -39,8 +42,9 @@ sub add_attachment {
 	my $description = shift;
 	my $comment = shift;
 
-	$mech->get("http://bugzilla.gnome.org/attachment.cgi?bugid=$bugid&action=enter");
-	die "Can't get attachment form: ", $mech->res->status_line unless $mech->success;
+	$mech->get("$url/attachment.cgi?bugid=$bugid&action=enter");
+	die "Can't get attachment form: ", $mech->res->status_line
+		unless $mech->success;
 
 	my $form = $mech->form_name('entryform');
 
@@ -58,7 +62,8 @@ sub add_attachment {
 	$file->content($patch);
 
 	$mech->submit;
-	die "Attachment failed: ", $mech->res->status_line unless $mech->success;
+	die "Attachment failed: ", $mech->res->status_line
+		unless $mech->success;
 }
 
 sub read_repo_config {
@@ -68,10 +73,33 @@ sub read_repo_config {
 	my $arg = 'git-repo-config';
 	$arg .= " --$type" unless $type eq 'str';
 
-	chomp(my $val = `$arg --get bugzilla.$key`);
+	chop (my $val = `$arg --get bugzilla.$key`);
 	
 	return $val eq 'true' if ($type eq 'bool');
 	return $val;
+}
+
+sub usage {
+	print STDERR <<EOF;
+Usage: git-send-bugzilla [options] <since>[..<until>]
+
+Options:
+   -b|--bug <bugid>
+       The bug number to attach the patches to.
+
+   -u|--username <username>
+       Your Bugzilla user name.
+
+   -p|--password <password>
+       Your Bugzilla password.
+
+   -n|--numbered
+       Prefix attachment names with [n/m].
+
+   --start-number <n>
+       Start numbering the patches at <n> instead of 1.
+EOF
+	exit shift || 0;
 }
 
 my $bugid = 0;
@@ -93,39 +121,30 @@ GetOptions("bug|b=i" => \$bugid,
 	   "dry-run" => \$dry_run,
 	   "help|h|?" => \$help);
 
-print <<EOF and exit !$help unless $dry_run or ($bugid > 0 and $username) and !$help;
-Usage: git-send-bugzilla [options] <since>[..<until>]
-
-Options:
-   -b|--bug <bugid>
-       The bug number to attach the patches to.
-
-   -u|--username <username>
-       Your Bugzilla user name.
-
-   -p|--password <password>
-       Your Bugzilla password.
-
-   -n|--numbered
-       Prefix attachment names with [n/m].
-
-   --start-number <n>
-       Start numbering the patches at <n> instead of 1.
-EOF
+usage if $help;
+print STDERR "No bug id specified!\n" and usage 1
+	unless $dry_run or $bugid;
+print STDERR "No user name specified!\n" and usage 1
+	unless $dry_run or $username;
 
 # Get revisions to build patch from. Do the same way git-format-patch does.
 my @revisions;
-open REVPARSE, '-|', "git-rev-parse", @ARGV or die "Cannot parse git-rev-parse: $!";
+open REVPARSE, '-|', 'git-rev-parse', @ARGV
+	or die "Cannot call git-rev-parse: $!";
 chop (@revisions = grep {1} <REVPARSE>);
 close REVPARSE;
 
-if (@revisions eq 1) {
+if (@revisions eq 0) {
+	print STDERR "No revision specified!\n";
+	usage 1;
+} elsif (@revisions eq 1) {
 	$revisions[0] =~ s/^\^?/^/;
 	push @revisions, 'HEAD';
 }
 
 # Get revision list
-open REVLIST, '-|', "git-rev-list", @revisions or die "Cannot call git-rev-list: $!";
+open REVLIST, '-|', "git-rev-list", @revisions
+	or die "Cannot call git-rev-list: $!";
 chop (@revisions = reverse <REVLIST>);
 close REVLIST;
 
@@ -133,7 +152,7 @@ die "No patch to send\n" if @revisions eq 0;
 
 authenticate $username, $password unless $dry_run;
 
-print "Attaching patches...\n";
+print STDERR "Attaching patches...\n";
 my $i = $start_number;
 my $n = @revisions - 1 + $i;
 for my $rev (@revisions) {
@@ -154,7 +173,7 @@ for my $rev (@revisions) {
 	$comment .= `git-diff-tree --stat $rev`;
 	my $patch = `git-diff-tree -p $rev`;
 	
-	print "  - $description\n";
+	print STDERR "  - $description\n";
 
 	add_attachment $bugid, $patch, $description, $comment unless $dry_run;
 
