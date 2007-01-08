@@ -56,6 +56,7 @@ my $since = "";
 my $until = "";
 my $numbered = 0;
 my $start_number = 1;
+my $dry_run = 0;
 my $help = 0;
 
 # Parse options
@@ -64,9 +65,10 @@ GetOptions("bug|b=i" => \$bugid,
 	   "password|p=s" => \$password,
 	   "numbered|n" => \$numbered,
 	   "start-number" => \$start_number,
-	   "help|h|?" => $help);
+	   "dry-run" => \$dry_run,
+	   "help|h|?" => \$help);
 
-print <<EOF and exit(!$help) unless ($bugid > 0 and $username and $password and !$help);
+print <<EOF and exit !$help unless $dry_run or ($bugid > 0 and $username and $password) and !$help;
 Usage: git-send-bugzilla [options] <since>[..<until>]
 
 Options:
@@ -94,7 +96,7 @@ close REVLIST;
 
 die "No patch to send\n" if @revisions eq 0;
 
-authenticate $username, $password;
+authenticate $username, $password unless $dry_run;
 
 print "Attaching patches...\n";
 my $i = $start_number;
@@ -119,7 +121,7 @@ for my $rev (@revisions) {
 	
 	print "  - $description\n";
 
-	add_attachment $bugid, $patch, $description, $comment;
+	add_attachment $bugid, $patch, $description, $comment unless $dry_run;
 
 	$i++;
 }
