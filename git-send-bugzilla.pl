@@ -101,9 +101,19 @@ Options:
        Start numbering the patches at <n> instead of 1.
 EOF
 
-# Get revision list
+# Get revisions to build patch from. Do the same way git-format-patch does.
 my @revisions;
-open REVLIST, '-|', "git-rev-list", @ARGV or die "Cannot call git-rev-list: $!";
+open REVPARSE, '-|', "git-rev-parse", @ARGV or die "Cannot parse git-rev-parse: $!";
+chop (@revisions = grep {1} <REVPARSE>);
+close REVPARSE;
+
+if (@revisions eq 1) {
+	$revisions[0] =~ s/^\^?/^/;
+	push @revisions, 'HEAD';
+}
+
+# Get revision list
+open REVLIST, '-|', "git-rev-list", @revisions or die "Cannot call git-rev-list: $!";
 chop (@revisions = reverse <REVLIST>);
 close REVLIST;
 
