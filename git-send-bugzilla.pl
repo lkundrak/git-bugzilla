@@ -49,12 +49,25 @@ sub add_attachment {
 	die "Attachment failed: ", $mech->res->status_line unless $mech->success;
 }
 
+sub read_repo_config {
+	my $key = shift;
+	my $type = shift || 'str';
+
+	my $arg = 'git-repo-config';
+	$arg .= " --$type" unless $type eq 'str';
+
+	chomp(my $val = `$arg --get bugzilla.$key`);
+	
+	return $val eq 'true' if ($type eq 'bool');
+	return $val;
+}
+
 my $bugid = 0;
-my $username = '';
-my $password = '';
+my $username = read_repo_config 'username';
+my $password = read_repo_config 'password';
 my $since = "";
 my $until = "";
-my $numbered = 0;
+my $numbered = read_repo_config 'numbered', 'bool' or 0;
 my $start_number = 1;
 my $dry_run = 0;
 my $help = 0;
