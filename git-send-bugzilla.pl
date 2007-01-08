@@ -1,9 +1,12 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
+# Copyright (C) 2007, Steve Frécinaux <code@istique.net>
+# License: GPL v2 or later
 
 use strict;
 use warnings;
 use WWW::Mechanize;
 use Getopt::Long;
+use Term::ReadKey qw/ReadMode ReadLine/;
 
 my $mech = WWW::Mechanize->new(agent => "git-send-bugzilla/0.0");
 
@@ -12,6 +15,15 @@ sub authenticate {
 	my $password = shift;
 
 	print "Logging in as $username...\n";
+
+	unless ($password) {
+		print "Bugzilla password: ";
+		ReadMode 'noecho';
+		chop ($password = ReadLine(0));
+		ReadMode 'restore';
+		print "\n";
+	}
+
 	$mech->get("http://bugzilla.gnome.org/index.cgi?GoAheadAndLogIn=1");
 	die "Can't fetch login form: ", $mech->res->status_line unless $mech->success;
 
@@ -81,7 +93,7 @@ GetOptions("bug|b=i" => \$bugid,
 	   "dry-run" => \$dry_run,
 	   "help|h|?" => \$help);
 
-print <<EOF and exit !$help unless $dry_run or ($bugid > 0 and $username and $password) and !$help;
+print <<EOF and exit !$help unless $dry_run or ($bugid > 0 and $username) and !$help;
 Usage: git-send-bugzilla [options] <since>[..<until>]
 
 Options:
