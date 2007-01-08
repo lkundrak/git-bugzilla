@@ -5,6 +5,50 @@ use warnings;
 use WWW::Mechanize;
 use Getopt::Long;
 
+my $mech = WWW::Mechanize->new(agent => "git-send-bugzilla/0.0");
+
+sub authenticate {
+	my $username = shift;
+	my $password = shift;
+
+	print "Logging in as $username...\n";
+	$mech->get("http://bugzilla.gnome.org/index.cgi?GoAheadAndLogIn=1");
+	die "Can't fetch login form: ", $mech->res->status_line unless $mech->success;
+
+	$mech->set_fields(Bugzilla_login => $username,
+			  Bugzilla_password => $password);
+	$mech->submit;
+	die "Login submission failed: ", $mech->res->status_line unless $mech->success;
+}
+
+sub add_attachment {
+	my $bugid = shift;
+	my $patch = shift;
+	my $description = shift;
+	my $comment = shift;
+
+	$mech->get("http://bugzilla.gnome.org/attachment.cgi?bugid=$bugid&action=enter");
+	die "Can't get attachment form: ", $mech->res->status_line unless $mech->success;
+
+	my $form = $mech->form_name('entryform');
+
+	$form->value('description', $description);
+	$form->value('ispatch', 1);
+	$form->value('comment', $comment);
+
+	my $file = $form->find_input('data', 'file');
+
+	my $filename = $patch;
+	$filename =~ s/[^a-zA-Z0-9._]+/-/;
+	$filename = "$filename.patch";
+	$file->filename($filename);
+
+	$file->content($patch);
+
+	$mech->submit;
+	die "Attachment failed: ", $mech->res->status_line unless $mech->success;
+}
+
 my $bugid = 0;
 my $username = '';
 my $password = '';
@@ -22,7 +66,7 @@ GetOptions("bug|b=i" => \$bugid,
 	   "start-number" => \$start_number,
 	   "help|h|?" => $help);
 
-print <<EOF and exit unless ($bugid > 0 and $username and $password and !$help);
+print <<EOF and exit(!$help) unless ($bugid > 0 and $username and $password and !$help);
 Usage: git-send-bugzilla [options] <since>[..<until>]
 
 Options:
@@ -34,7 +78,7 @@ Options:
 
    -p|--password <password>
        Your Bugzilla password.
-   
+
    -n|--numbered
        Prefix attachment names with [n/m].
 
@@ -50,16 +94,7 @@ close REVLIST;
 
 die "No patch to send\n" if @revisions eq 0;
 
-# Authenticate
-my $mech = WWW::Mechanize->new(agent => "git-send-bugzilla/0.0");
-print "Logging in as $username...\n";
-$mech->get("http://bugzilla.gnome.org/index.cgi?GoAheadAndLogIn=1");
-die "Can't fetch login form: ", $mech->res->status_line unless $mech->success;
-
-$mech->set_fields(Bugzilla_login => $username,
-		  Bugzilla_password => $password);
-$mech->submit;
-die "Login submission failed: ", $mech->res->status_line unless $mech->success;
+authenticate $username, $password;
 
 print "Attaching patches...\n";
 my $i = $start_number;
@@ -83,23 +118,8 @@ for my $rev (@revisions) {
 	my $patch = `git-diff-tree -p $rev`;
 	
 	print "  - $description\n";
-	
-	# Attach a patch to the bug
-	$mech->get("http://bugzilla.gnome.org/attachment.cgi?bugid=$bugid&action=enter");
-	die "Can't get attachment form: ", $mech->res->status_line unless $mech->success;
 
-	my $form = $mech->form_name('entryform');
-
-	$form->value('description', $description);
-	$form->value('ispatch', 1);
-	$form->value('comment', $comment);
-
-	my $file = $form->find_input('data', 'file');
-	$file->filename("patch-$i.patch");
-	$file->content($patch);
-
-	$mech->submit;
-	die "Attachment failed: ", $mech->res->status_line unless $mech->success;
+	add_attachment $bugid, $patch, $description, $comment;
 
 	$i++;
 }
