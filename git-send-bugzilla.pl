@@ -73,12 +73,14 @@ sub add_attachment {
 sub read_repo_config {
 	my $key = shift;
 	my $type = shift || 'str';
+	my $default = shift || '';
 
 	my $arg = 'git-repo-config';
 	$arg .= " --$type" unless $type eq 'str';
 
 	chop (my $val = `$arg --get bugzilla.$key`);
 	
+	return $default if $?;
 	return $val eq 'true' if ($type eq 'bool');
 	return $val;
 }
@@ -107,8 +109,8 @@ EOF
 
 my $username = read_repo_config 'username';
 my $password = read_repo_config 'password';
-my $numbered = read_repo_config 'numbered', 'bool' or 0;
-my $start_number = 1;
+my $numbered = read_repo_config 'numbered', 'bool', 0;
+my $start_number = read_repo_config 'startnumber', 'int', 1;
 my $dry_run = 0;
 my $help = 0;
 
