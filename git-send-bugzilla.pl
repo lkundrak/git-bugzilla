@@ -38,6 +38,7 @@ sub authenticate {
 	$mech->submit;
 	die "Login submission failed: ", $mech->res->status_line
 		unless $mech->success;
+	die "Invalid login or password\n" if $mech->title =~ /Invalid/i;
 }
 
 sub add_attachment {
@@ -58,8 +59,10 @@ sub add_attachment {
 
 	my $file = $form->find_input('data', 'file');
 
-	my $filename = $patch;
-	$filename =~ s/[^a-zA-Z0-9._]+/-/;
+	my $filename = $description;
+	$filename =~ s/^\[PATCH\]//;
+	$filename =~ s/^\[[0-9]+\/[0-9]+\]/$1/;
+	$filename =~ s/[^a-zA-Z0-9._]+/-/g;
 	$filename = "$filename.patch";
 	$file->filename($filename);
 
@@ -68,6 +71,9 @@ sub add_attachment {
 	$mech->submit;
 	die "Attachment failed: ", $mech->res->status_line
 		unless $mech->success;
+
+	die "Error while attaching patch. Aborting\n"
+		unless $mech->title =~ /Changes Submitted/i;
 }
 
 sub read_repo_config {
@@ -170,7 +176,7 @@ for my $rev (@revisions) {
 	close COMMIT;
 
 	$comment .= "\n---\n" unless $comment eq '';
-	$comment .= `git-diff-tree --stat $rev`;
+	$comment .= `git-diff-tree --stat --no-commit-id $rev`;
 	my $patch = `git-diff-tree -p $rev`;
 	
 	print STDERR "  - $description\n";
