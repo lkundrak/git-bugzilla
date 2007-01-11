@@ -94,22 +94,7 @@ sub read_repo_config {
 sub usage {
 	my $exitcode = shift || 0;
 	my $fd = $exitcode ? \*STDERR : \*STDOUT;
-	print $fd <<EOF;
-Usage: git-send-bugzilla [options] <bugid> <since>[..<until>]
-
-Options:
-   -u|--username <username>
-       Your Bugzilla user name.
-
-   -p|--password <password>
-       Your Bugzilla password.
-
-   -n|--numbered
-       Prefix attachment names with [n/m].
-
-   --start-number <n>
-       Start numbering the patches at <n> instead of 1.
-EOF
+	print $fd "Usage: git-send-bugzilla [options] <bugid> <since>[..<until>]\n";
 	exit $exitcode;
 }
 
@@ -128,7 +113,8 @@ GetOptions("username|u=s" => \$username,
 	   "dry-run" => \$dry_run,
 	   "help|h|?" => \$help);
 
-usage if $help;
+exec 'man', 1, 'git-send-bugzilla' if $help;
+
 my $bugid = shift @ARGV
 	or print STDERR "No bug id specified!\n" and usage 1
 	unless $dry_run;

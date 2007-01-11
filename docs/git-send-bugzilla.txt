@@ -1,0 +1,75 @@
+git-send-bugzilla(1)
+====================
+
+NAME
+----
+git-send-bugzilla - Attach patches to a bugzilla bug
+
+
+SYNOPSIS
+--------
+[verse]
+'git-send-bugzilla' [OPTIONS] (--dry-run | <bugid>)
+                    <since>[..<until>]
+
+DESCRIPTION
+-----------
+
+Attach each commit between <since> and <until> to the bug <bugid>
+on GNOME's bugzilla.
+If ..<until> is not specified, the head of the current working
+tree is implied.
+
+If -n (or bugzilla.numbered in the repository configuration) is
+specified, instead of "[PATCH] Subject", the first line is
+formatted as "[n/m] Subject".
+
+OPTIONS
+-------
+-u|--username <username>::
+	Your Bugzilla user name.
+
+-p|--password <password>::
+	Your Bugzilla password.
+
+-n|--numbered::
+	Prefix attachment names with [n/m].
+
+--start-number <n>::
+	Start numbering the patches at <n> instead of 1.
+
+--dry-run::
+	Don't do anything for real. If you use this option you
+	shouldn't specify a bug id.
+
+CONFIGURATION
+-------------
+You can specify an user name and a password for the bugzilla in the
+repository configuration as follows:
+
+..........................
+[bugzilla]
+        username = "wanda@gnome.org"
+        password = "********"
+..........................
+
+
+If you don't specify one of them in the repository configuration
+nor in the command line, git-send-bugzilla ask it before trying
+to attach the patches.
+
+EXAMPLES
+--------
+git-send-bugzilla -n 12345 git-svn
+	Extract all commits which are in the current branch but
+	not in the git-svn branch. Each commit will be attached as
+	a single patch to the bug #12345
+
+Author
+------
+Written by Steve Frécinaux <code@istique.net>.
+
+Documentation
+--------------
+Documentation by Steve Frécinaux <code@istique.net>.
+
