@@ -4,9 +4,17 @@
 
 use strict;
 use warnings;
-use WWW::Mechanize;
-use Getopt::Long;
+use Getopt::Long qw(:config posix_default gnu_getopt);
 use Term::ReadKey qw/ReadMode ReadLine/;
+
+# Use WWW::Mechanize if available and display a gentle message otherwise.
+BEGIN {
+	eval { require WWW::Mechanize; import WWW::Mechanize };
+	die <<ERROR if $@;
+The module WWW::Mechanize is required by git-send-bugzilla but is currently
+not available. You can install it using cpan WWW::Mechanize.
+ERROR
+}
 
 my $url = "http://bugzilla.gnome.org";
 my $mech = WWW::Mechanize->new(agent => "git-send-bugzilla/0.0");
