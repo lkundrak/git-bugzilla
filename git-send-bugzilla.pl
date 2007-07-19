@@ -49,6 +49,27 @@ sub authenticate {
 	die "Invalid login or password\n" if $mech->title =~ /Invalid/i;
 }
 
+sub get_patch_info {
+	my $rev = shift;
+
+	open COMMIT, '-|', "git-cat-file commit $rev";
+	# skip headers
+	while (<COMMIT>) {
+		chop;
+		last if $_ eq '';
+	}
+	chop (my $description = <COMMIT>);
+	chop (my $comment = join '', <COMMIT>) unless eof COMMIT;
+	close COMMIT;
+
+	$comment .= "\n---\n" unless $comment eq '';
+	$comment .= `git-diff-tree --stat --no-commit-id $rev`;
+
+	my $patch = `git-diff-tree -p $rev`;
+
+	return ($description, $comment, $patch);
+}
+
 sub add_attachment {
 	my $bugid = shift;
 	my $patch = shift;
@@ -156,23 +177,8 @@ print STDERR "Attaching patches...\n";
 my $i = $start_number;
 my $n = @revisions - 1 + $i;
 for my $rev (@revisions) {
-	my $description = $numbered ? "[$i/$n]" : '[PATCH]';
-	my $comment = '';
-
-	open COMMIT, '-|', "git-cat-file commit $rev";
-	# skip headers
-	while (<COMMIT>) {
-		chop;
-		last if $_ eq "";
-	}
-	chop ($description .= ' ' . <COMMIT>);
-	chop ($comment = join "", <COMMIT>) unless eof COMMIT;
-	close COMMIT;
-
-	$comment .= "\n---\n" unless $comment eq '';
-	$comment .= `git-diff-tree --stat --no-commit-id $rev`;
-	my $patch = `git-diff-tree -p $rev`;
-	
+	my ($description, $comment, $patch) = get_patch_info $rev;
+	$description = ($numbered ? "[$i/$n]" : '[PATCH]') . " $description";
 	print STDERR "  - $description\n";
 
 	add_attachment $bugid, $patch, $description, $comment unless $dry_run;
