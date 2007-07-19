@@ -50,22 +50,26 @@ sub authenticate {
 }
 
 sub get_patch_info {
-	my $rev = shift;
+	my $rev1 = shift;
+	my $rev2 = shift | '';
 
-	open COMMIT, '-|', "git-cat-file commit $rev";
+	my $description;
+	my $comment = '';
+
+	open COMMIT, '-|', 'git-cat-file commit ' . ($rev2 ? $rev2 : $rev1);
 	# skip headers
 	while (<COMMIT>) {
 		chop;
 		last if $_ eq '';
 	}
-	chop (my $description = <COMMIT>);
-	chop (my $comment = join '', <COMMIT>) unless eof COMMIT;
+	chop ($description = <COMMIT>);
+	chop ($comment = join '', <COMMIT>) unless eof COMMIT;
 	close COMMIT;
 
 	$comment .= "\n---\n" unless $comment eq '';
-	$comment .= `git-diff-tree --stat --no-commit-id $rev`;
+	$comment .= `git-diff-tree --stat --no-commit-id $rev1 $rev2`;
 
-	my $patch = `git-diff-tree -p $rev`;
+	my $patch = `git-diff-tree -p $rev1 $rev2`;
 
 	return ($description, $comment, $patch);
 }
@@ -131,6 +135,7 @@ my $username = read_repo_config 'username';
 my $password = read_repo_config 'password';
 my $numbered = read_repo_config 'numbered', 'bool', 0;
 my $start_number = read_repo_config 'startnumber', 'int', 1;
+my $squash = read_repo_config 'squash', 'bool', 0;
 my $dry_run = 0;
 my $help = 0;
 
@@ -139,6 +144,7 @@ GetOptions("username|u=s" => \$username,
 	   "password|p=s" => \$password,
 	   "numbered|n" => \$numbered,
 	   "start-number" => \$start_number,
+	   "squash" => \$squash,
 	   "dry-run" => \$dry_run,
 	   "help|h|?" => \$help);
 
@@ -163,26 +169,34 @@ if (@revisions eq 0) {
 	push @revisions, 'HEAD';
 }
 
-# Get revision list
-open REVLIST, '-|', "git-rev-list", @revisions
-	or die "Cannot call git-rev-list: $!";
-chop (@revisions = reverse <REVLIST>);
-close REVLIST;
+if (!$squash) {
+	# Get revision list
+	open REVLIST, '-|', "git-rev-list", @revisions
+		or die "Cannot call git-rev-list: $!";
+	chop (@revisions = reverse <REVLIST>);
+	close REVLIST;
 
-die "No patch to send\n" if @revisions eq 0;
+	die "No patch to send\n" if @revisions eq 0;
 
-authenticate $username, $password unless $dry_run;
+	authenticate $username, $password unless $dry_run;
 
-print STDERR "Attaching patches...\n";
-my $i = $start_number;
-my $n = @revisions - 1 + $i;
-for my $rev (@revisions) {
-	my ($description, $comment, $patch) = get_patch_info $rev;
-	$description = ($numbered ? "[$i/$n]" : '[PATCH]') . " $description";
-	print STDERR "  - $description\n";
+	print STDERR "Attaching patches...\n";
+	my $i = $start_number;
+	my $n = @revisions - 1 + $i;
+	for my $rev (@revisions) {
+		my ($description, $comment, $patch) = get_patch_info $rev;
+		$description = ($numbered ? "[$i/$n]" : '[PATCH]') . " $description";
+		print STDERR "  - $description\n";
 
+		add_attachment $bugid, $patch, $description, $comment unless $dry_run;
+
+		$i++;
+	}
+} else {
+	my ($description, $comment, $patch) = get_patch_info @revisions;
+	$description = "[PATCH] $description";
+
+	authenticate $username, $password unless $dry_run;
 	add_attachment $bugid, $patch, $description, $comment unless $dry_run;
-
-	$i++;
 }
 print "Done.\n"
