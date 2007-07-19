@@ -69,7 +69,7 @@ sub add_attachment {
 
 	my $filename = $description;
 	$filename =~ s/^\[PATCH\]//;
-	$filename =~ s/^\[[0-9]+\/[0-9]+\]/$1/;
+	$filename =~ s/^\[([0-9]+)\/[0-9]+\]/$1/;
 	$filename =~ s/[^a-zA-Z0-9._]+/-/g;
 	$filename = "$filename.patch";
 	$file->filename($filename);
