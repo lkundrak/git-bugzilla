@@ -32,6 +32,9 @@ OPTIONS
 -p|--password <password>::
 	Your Bugzilla password.
 
+-s|--squash::
+	Send all the selected commits as a single patch.
+
 -n|--numbered::
 	Prefix attachment names with [n/m].
 
@@ -55,14 +58,14 @@ repository configuration as follows:
 
 
 If you don't specify one of them in the repository configuration
-nor in the command line, git-send-bugzilla ask it before trying
-to attach the patches.
+nor in the command line, git-send-bugzilla will ask for it before
+trying to attach the patches.
 
 EXAMPLES
 --------
-git-send-bugzilla -n 12345 git-svn
+git-send-bugzilla -n 12345 master
 	Extract all commits which are in the current branch but
-	not in the git-svn branch. Each commit will be attached as
+	not in the 'master' branch. Each commit will be attached as
 	a single patch to the bug #12345
 
 Author

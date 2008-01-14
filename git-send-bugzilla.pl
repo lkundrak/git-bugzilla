@@ -186,8 +186,8 @@ if (!$squash) {
 	for my $rev (@revisions) {
 		my ($description, $comment, $patch) = get_patch_info $rev;
 		$description = ($numbered ? "[$i/$n]" : '[PATCH]') . " $description";
-		print STDERR "  - $description\n";
 
+		print STDERR "  - $description\n";
 		add_attachment $bugid, $patch, $description, $comment unless $dry_run;
 
 		$i++;
@@ -197,6 +197,8 @@ if (!$squash) {
 	$description = "[PATCH] $description";
 
 	authenticate $username, $password unless $dry_run;
+
+	print STDERR "Attaching squashed patch...\n";
 	add_attachment $bugid, $patch, $description, $comment unless $dry_run;
 }
 print "Done.\n"
