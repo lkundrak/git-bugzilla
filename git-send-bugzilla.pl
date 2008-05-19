@@ -56,7 +56,7 @@ sub get_patch_info {
 	my $description;
 	my $comment = '';
 
-	open COMMIT, '-|', 'git-cat-file commit ' . ($rev2 ? $rev2 : $rev1);
+	open COMMIT, '-|', 'git cat-file commit ' . ($rev2 ? $rev2 : $rev1);
 	# skip headers
 	while (<COMMIT>) {
 		chop;
@@ -67,9 +67,9 @@ sub get_patch_info {
 	close COMMIT;
 
 	$comment .= "\n---\n" unless $comment eq '';
-	$comment .= `git-diff-tree --stat --no-commit-id $rev1 $rev2`;
+	$comment .= `git diff-tree --stat --no-commit-id $rev1 $rev2`;
 
-	my $patch = `git-diff-tree -p $rev1 $rev2`;
+	my $patch = `git diff-tree -p $rev1 $rev2`;
 
 	return ($description, $comment, $patch);
 }
@@ -114,7 +114,7 @@ sub read_repo_config {
 	my $type = shift || 'str';
 	my $default = shift || '';
 
-	my $arg = 'git-repo-config';
+	my $arg = 'git config';
 	$arg .= " --$type" unless $type eq 'str';
 
 	chop (my $val = `$arg --get bugzilla.$key`);
@@ -156,8 +156,8 @@ my $bugid = shift @ARGV
 
 # Get revisions to build patch from. Do the same way git-format-patch does.
 my @revisions;
-open REVPARSE, '-|', 'git-rev-parse', ('--revs-only', @ARGV)
-	or die "Cannot call git-rev-parse: $!";
+open REVPARSE, '-|', 'git rev-parse', ('--revs-only', @ARGV)
+	or die "Cannot call git rev-parse: $!";
 chop (@revisions = <REVPARSE>);
 close REVPARSE;
 
@@ -171,8 +171,8 @@ if (@revisions eq 0) {
 
 if (!$squash) {
 	# Get revision list
-	open REVLIST, '-|', "git-rev-list", @revisions
-		or die "Cannot call git-rev-list: $!";
+	open REVLIST, '-|', "git rev-list", @revisions
+		or die "Cannot call git rev-list: $!";
 	chop (@revisions = reverse <REVLIST>);
 	close REVLIST;
 
