@@ -156,7 +156,7 @@ my $bugid = shift @ARGV
 
 # Get revisions to build patch from. Do the same way git-format-patch does.
 my @revisions;
-open REVPARSE, '-|', 'git rev-parse', ('--revs-only', @ARGV)
+open REVPARSE, '-|', 'git', 'rev-parse', ('--revs-only', @ARGV)
 	or die "Cannot call git rev-parse: $!";
 chop (@revisions = <REVPARSE>);
 close REVPARSE;
@@ -171,7 +171,7 @@ if (@revisions eq 0) {
 
 if (!$squash) {
 	# Get revision list
-	open REVLIST, '-|', "git rev-list", @revisions
+	open REVLIST, '-|', 'git', 'rev-list', @revisions
 		or die "Cannot call git rev-list: $!";
 	chop (@revisions = reverse <REVLIST>);
 	close REVLIST;
