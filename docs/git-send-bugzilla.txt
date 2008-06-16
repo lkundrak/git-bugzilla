@@ -26,6 +26,9 @@ formatted as "[n/m] Subject".
 
 OPTIONS
 -------
+-b|--url <url>::
+	The Bugzilla URL.
+
 -u|--username <username>::
 	Your Bugzilla user name.
 
@@ -47,11 +50,12 @@ OPTIONS
 
 CONFIGURATION
 -------------
-You can specify an user name and a password for the bugzilla in the
-repository configuration as follows:
+You can specify an URL, an user name and a password for the bugzilla
+in the repository configuration as follows:
 
 ..........................
 [bugzilla]
+        url = "http://bugzilla.kernel.org"
         username = "wanda@gnome.org"
         password = "********"
 ..........................

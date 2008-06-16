@@ -16,8 +16,8 @@ not available. You can install it using cpan WWW::Mechanize.
 ERROR
 }
 
-my $url = "http://bugzilla.gnome.org";
 my $mech = WWW::Mechanize->new(agent => "git-send-bugzilla/0.0");
+my $url = '';
 
 sub authenticate {
 	my $username = shift;
@@ -131,6 +131,7 @@ sub usage {
 	exit $exitcode;
 }
 
+$url = read_repo_config 'url', 'str', 'http://bugzilla.gnome.org';
 my $username = read_repo_config 'username';
 my $password = read_repo_config 'password';
 my $numbered = read_repo_config 'numbered', 'bool', 0;
@@ -140,7 +141,8 @@ my $dry_run = 0;
 my $help = 0;
 
 # Parse options
-GetOptions("username|u=s" => \$username,
+GetOptions("url|b=s" => \$url,
+           "username|u=s" => \$username,
 	   "password|p=s" => \$password,
 	   "numbered|n" => \$numbered,
 	   "start-number" => \$start_number,
