@@ -51,7 +51,7 @@ sub authenticate {
 
 sub get_patch_info {
 	my $rev1 = shift;
-	my $rev2 = shift | '';
+	my $rev2 = shift || '';
 
 	my $description;
 	my $comment = '';
