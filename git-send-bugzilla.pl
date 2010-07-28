@@ -1,11 +1,13 @@
 #!/usr/bin/env perl
 # Copyright (C) 2007, Steve Frécinaux <code@istique.net>
+# Pitifully crippled by Lubomir Rintel <lkundrak@v3.sk>
 # License: GPL v2 or later
 
 use strict;
 use warnings;
 use Getopt::Long qw(:config posix_default gnu_getopt);
 use Term::ReadKey qw/ReadMode ReadLine/;
+use File::Temp qw/tempdir/;
 
 # Use WWW::Mechanize if available and display a gentle message otherwise.
 BEGIN {
@@ -49,29 +51,45 @@ sub authenticate {
 	die "Invalid login or password\n" if $mech->title =~ /Invalid/i;
 }
 
+sub read_file {
+	my $file = shift;
+
+	open FILE, '<', $file;
+	my $content = join "", <FILE>;
+	close FILE;
+	return $content;
+}
+
 sub get_patch_info {
-	my $rev1 = shift;
-	my $rev2 = shift || '';
+	my $patch = shift;
 
 	my $description;
 	my $comment = '';
+	my $bugid;
 
-	open COMMIT, '-|', 'git cat-file commit ' . ($rev2 ? $rev2 : $rev1);
-	# skip headers
+	open COMMIT, '<', $patch or die "$patch: $!";
 	while (<COMMIT>) {
 		chop;
-		last if $_ eq '';
+
+		# Get subject from header
+		if (1 .. $_ eq '') {
+			/^Subject: (.*)/ or next;
+			$description = $1;
+		# Get comment lines
+		} elsif (not $_ eq '---' ... $_ eq '---') {
+			$comment .= "$_\n";
+		# Skip diff content
+		} else {
+			last;
+		}
+
+		# If there's a bug id in comment, get it
+		not $bugid and /#(\d+)/ and $bugid = $1;
 	}
-	chop ($description = <COMMIT>);
-	chop ($comment = join '', <COMMIT>) unless eof COMMIT;
 	close COMMIT;
+	chomp $comment;
 
-	$comment .= "\n---\n" unless $comment eq '';
-	$comment .= `git diff-tree --stat --no-commit-id $rev1 $rev2`;
-
-	my $patch = `git diff-tree -p $rev1 $rev2`;
-
-	return ($description, $comment, $patch);
+	return ($description, $comment, $bugid);
 }
 
 sub add_attachment {
@@ -144,70 +162,73 @@ my $password = read_repo_config 'password';
 my $numbered = read_repo_config 'numbered', 'bool', 0;
 my $start_number = read_repo_config 'startnumber', 'int', 1;
 my $squash = read_repo_config 'squash', 'bool', 0;
+my $bugid;
 my $dry_run = 0;
 my $help = 0;
 
 # Parse options
+Getopt::Long::Configure("require_order", "pass_through");
 GetOptions("url|b=s" => \$url,
            "username|u=s" => \$username,
 	   "password|p=s" => \$password,
 	   "numbered|n" => \$numbered,
 	   "start-number" => \$start_number,
 	   "squash" => \$squash,
+	   "bugid" => \$bugid,
 	   "dry-run" => \$dry_run,
 	   "help|h|?" => \$help);
 
 exec 'man', 1, 'git-send-bugzilla' if $help;
 
-my $bugid = shift @ARGV
-	or print STDERR "No bug id specified!\n" and usage 1
-	unless $dry_run;
+# Compatibility: if it looks like a number, consider it
+# to be a bug number (as if specified via --bugid)
+$bugid = shift @ARGV if @ARGV and $ARGV[0] =~ /^\d+$/;
 
-# Get revisions to build patch from. Do the same way git-format-patch does.
 my @revisions;
-open REVPARSE, '-|', 'git', 'rev-parse', ('--revs-only', @ARGV)
-	or die "Cannot call git rev-parse: $!";
-chop (@revisions = <REVPARSE>);
-close REVPARSE;
-
-if (@revisions eq 0) {
-	print STDERR "No revision specified!\n";
-	usage 1;
-} elsif (@revisions eq 1) {
-	$revisions[0] =~ s/^\^?/^/;
-	push @revisions, 'HEAD';
+while (@ARGV and not $ARGV[0] eq '--') {
+	push @revisions, shift @ARGV;
 }
 
+# Get patch list
+my $patchdir = tempdir(CLEANUP => 1);
+open PATCHLIST, '-|', 'git', 'format-patch',
+	($numbered ? '--numbered' : ()),
+	'-o' => $patchdir, @revisions
+	or die "Cannot call git rev-list: $!";
+my @patches = <PATCHLIST>;
+chop @patches;
+close PATCHLIST;
+
+die "No patch to send\n" if @patches eq 0;
+authenticate $username, $password unless $dry_run;
+
 if (!$squash) {
-	# Get revision list
-	open REVLIST, '-|', 'git', 'rev-list', @revisions
-		or die "Cannot call git rev-list: $!";
-	chop (@revisions = reverse <REVLIST>);
-	close REVLIST;
-
-	die "No patch to send\n" if @revisions eq 0;
-
-	authenticate $username, $password unless $dry_run;
-
 	print STDERR "Attaching patches...\n";
-	my $i = $start_number;
-	my $n = @revisions - 1 + $i;
-	for my $rev (@revisions) {
-		my ($description, $comment, $patch) = get_patch_info $rev;
-		$description = ($numbered ? "[$i/$n]" : '[PATCH]') . " $description";
-
-		print STDERR "  - $description\n";
-		add_attachment $bugid, $patch, $description, $comment unless $dry_run;
-
-		$i++;
+	for my $patch (@patches) {
+		my ($description, $comment, $bug) = get_patch_info $patch;
+		$bug = $bugid if $bugid;
+		if ($bug) {
+			print STDERR "#$bug: $description\n";
+		} else {
+			print STDERR "No bug number for $description, skipping it.\n";
+			next;
+		}
+		add_attachment $bug, read_file($patch),
+			$description, $comment unless $dry_run;
 	}
 } else {
-	my ($description, $comment, $patch) = get_patch_info @revisions;
-	$description = "[PATCH] $description";
-
-	authenticate $username, $password unless $dry_run;
-
 	print STDERR "Attaching squashed patch...\n";
-	add_attachment $bugid, $patch, $description, $comment unless $dry_run;
+	die "No bug number" unless $bugid;
+	my $description = "[PATCH] Mailbox with ".scalar @patches." squashed changes";
+	my $comment = "";
+	my $content = '';
+	for my $patch (@patches) {
+		my ($description) = get_patch_info $patch;
+		$content .= read_file ($patch);
+		$comment .= "$description\n";
+	}
+	chomp $comment;
+	add_attachment $bugid, $content,
+		$description, $comment unless $dry_run;
 }
 print "Done.\n"

@@ -9,20 +9,14 @@ git-send-bugzilla - Attach patches to a bugzilla bug
 SYNOPSIS
 --------
 [verse]
-'git-send-bugzilla' [OPTIONS] (--dry-run | <bugid>)
-                    <since>[..<until>]
+'git-send-bugzilla' [OPTIONS] (--dry-run | [--bug-id] <bugid>)
+                    <format-patch options>
 
 DESCRIPTION
 -----------
 
-Attach each commit between <since> and <until> to the bug <bugid>
-on GNOME's bugzilla.
-If ..<until> is not specified, the head of the current working
-tree is implied.
-
-If -n (or bugzilla.numbered in the repository configuration) is
-specified, instead of "[PATCH] Subject", the first line is
-formatted as "[n/m] Subject".
+Format patches from Git repository and attach them to Bugzilla, analogously
+to git-send-email.
 
 OPTIONS
 -------
@@ -43,6 +37,12 @@ OPTIONS
 
 --start-number <n>::
 	Start numbering the patches at <n> instead of 1.
+
+--bug-id <bugid>::
+	Attach to this bug. Mandatory when --squash is used.
+	If none is specified, every patch's commit message
+	is searched for first #[0-9] string, which is in turn used.
+	Patches without bug reference are ignored with a warning.
 
 --dry-run::
 	Don't do anything for real. If you use this option you
@@ -72,9 +72,14 @@ git-send-bugzilla -n 12345 master
 	not in the 'master' branch. Each commit will be attached as
 	a single patch to the bug #12345
 
+git commit -am 'Fix bug #65536'
+git-send-bugzilla -1
+	Create a commit and attach last two commits to bugzilla.
+
 Author
 ------
 Written by Steve Frécinaux <code@istique.net>.
+Changed to resemble git-send-email by Lubomir Rintel <lkundrak@v3.sk>.
 
 Documentation
 --------------
