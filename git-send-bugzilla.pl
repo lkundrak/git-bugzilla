@@ -131,7 +131,14 @@ sub usage {
 	exit $exitcode;
 }
 
-$url = read_repo_config 'url', 'str', 'http://bugzilla.gnome.org';
+$url = read_repo_config 'url';
+die <<ERROR unless $url;
+URL of your bugzilla instance is not configured,
+Please configure your bugzilla instance like:
+
+   git config bugzilla.url http://bugzilla.gnome.org
+   git config bugzilla.url http://bugzilla.redhat.com
+ERROR
 my $username = read_repo_config 'username';
 my $password = read_repo_config 'password';
 my $numbered = read_repo_config 'numbered', 'bool', 0;
