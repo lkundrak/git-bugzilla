@@ -37,7 +37,7 @@ sub authenticate {
 	}
 
 	print STDERR "Logging in as $username...\n";
-	$mech->get("$url/index.cgi?GoAheadAndLogIn=1");
+	$mech->get("$url?GoAheadAndLogIn=1");
 	die "Can't fetch login form: ", $mech->res->status_line
 		unless $mech->success;
 
@@ -106,7 +106,7 @@ sub add_attachment {
 		unless $mech->success;
 
 	die "Error while attaching patch. Aborting\n"
-		unless $mech->title =~ /Changes Submitted/i;
+		unless $mech->title =~ /(Changes Submitted|Attachment \d+ added)/i;
 }
 
 sub read_repo_config {
